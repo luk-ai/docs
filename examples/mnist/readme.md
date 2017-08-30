@@ -4,16 +4,7 @@ This is the code from the [Tensorflow MNIST tutorial](https://www.tensorflow.org
 
 ## Dependencies
 
-You will need to install [Tensorflow](https://www.tensorflow.org/install/) and
-[Tensorflow for Go](https://www.tensorflow.org/install/install_go).
-
-Once you have those installed and are in the current directory, you'll need to
-install the lukai python and go libraries.
-
-```
-$ pip install lukai
-$ go get -v -u github.com/luk-ai/docs/examples/mnist
-```
+See [Installing Dependencies](../../dependencies.md).
 
 ## Create the model
 
