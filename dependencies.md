@@ -1,10 +1,16 @@
-# Dependencies
+# Installing Dependencies
 
 ## Python Management Library
 
-You will need to install [Tensorflow](https://www.tensorflow.org/install/).
+You will need to install [Tensorflow](https://www.tensorflow.org/install/). This
+can be done via `pip` in most cases:
+```
+$ pip install tensorflow
+```
+You can also install `tensorflow-gpu`, but GPU support doesn't matter since
+we're only creating a model and not training it.
 
-You can install the library via `pip`.
+You can install the `lukai` library via `pip` as well.
 
 ```
 $ pip install lukai
