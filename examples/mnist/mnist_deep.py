@@ -31,7 +31,7 @@ import sys
 import tempfile
 
 import tensorflow as tf
-import pok
+import lukai
 
 FLAGS = None
 
@@ -154,14 +154,14 @@ def main(_):
       x.name, y_.name, train_step.name,
     ))
 
-    pok.set_api_token(FLAGS.api_token)
-    pok.upload(
+    lukai.set_api_token(FLAGS.api_token)
+    lukai.upload(
         session=sess,
         domain=FLAGS.domain,
         model_type=FLAGS.model_type,
         name=FLAGS.name,
         description=FLAGS.description,
-        hyper_params=pok.HyperParams(
+        hyper_params=lukai.HyperParams(
             proportion_clients = 0.1,
             batch_size = 10,
             num_rounds = 100,
@@ -169,12 +169,12 @@ def main(_):
             num_local_rounds = 10,
         ),
         metrics={
-          accuracy: pok.REDUCE_MEAN,
+          accuracy: lukai.REDUCE_MEAN,
         },
         event_targets={
-          pok.EVENT_TRAIN: (keep_prob.assign(0.5),),
-          pok.EVENT_INFER: (keep_prob.assign(1.0),),
-          pok.EVENT_EVAL: (keep_prob.assign(1.0),),
+          lukai.EVENT_TRAIN: (keep_prob.assign(0.5),),
+          lukai.EVENT_INFER: (keep_prob.assign(1.0),),
+          lukai.EVENT_EVAL: (keep_prob.assign(1.0),),
         },
     )
 
