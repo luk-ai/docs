@@ -1,16 +1,16 @@
 import tensorflow as tf
 from lukai import saver
 
-x = tf.placeholder(tf.float32, [None, 1])
-y_ = tf.placeholder(tf.float32, [None, 1])
+x = tf.placeholder(tf.float32, [None, 1], name="x")
+y_ = tf.placeholder(tf.float32, [None, 1], name="y_")
 
-b = tf.Variable(tf.zeros([1]))
-w = tf.Variable(tf.zeros([1, 1]))
+b = tf.Variable(tf.zeros([1]), name="b")
+w = tf.Variable(tf.zeros([1, 1]), name="w")
 
-y = w * x + b
+y = tf.identity(w * x + b, name="y")
 
 loss = tf.reduce_sum((y - y_) * (y - y_))
-train_step = tf.train.GradientDescentOptimizer(0.005).minimize(loss)
+train_step = tf.train.GradientDescentOptimizer(0.005).minimize(loss, name="train")
 
 sess = tf.Session()
 sess.run(tf.initialize_all_variables())
@@ -23,8 +23,8 @@ for step in range(10):
 """
 
 
-print('Node names: x = {}, y = {}, train_step = {}, w = {}, b = {}'.format(
-  x.name, y_.name, train_step.name, w.name, b.name,
+print('Node names: x = {}, y_ = {}, train_step = {}, w = {}, b = {}, y = {}'.format(
+  x.name, y_.name, train_step.name, w.name, b.name, y.name,
 ))
 
 saver.save(sess)
