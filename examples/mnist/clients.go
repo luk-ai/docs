@@ -2,6 +2,7 @@ package main
 
 import (
 	"compress/gzip"
+	"context"
 	"encoding/binary"
 	"flag"
 	"log"
@@ -140,6 +141,9 @@ func main() {
 	log.SetFlags(log.Flags() | log.Lshortfile)
 	flag.Parse()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	if err := os.MkdirAll(dataDir, perm); err != nil {
 		log.Fatal(err)
 	}
@@ -223,7 +227,7 @@ func main() {
 
 	for i, mt := range clients {
 		log.Printf("%d. StartTraining...", i)
-		if err := mt.StartTraining(); err != nil {
+		if err := mt.StartTraining(ctx); err != nil {
 			log.Fatal(err)
 		}
 		wg.Add(1)
