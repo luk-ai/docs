@@ -28,7 +28,7 @@ lukai.upload(
     model_type=FLAGS.model_type,
     name=FLAGS.name,
     description=FLAGS.description,
-    hyper_params=pok.HyperParams(
+    hyper_params=lukai.HyperParams(
         proportion_clients = 0.1,
         batch_size = 10,
         num_rounds = 100,
@@ -36,12 +36,12 @@ lukai.upload(
         num_local_rounds = 10,
     ),
     metrics={
-      accuracy: pok.REDUCE_MEAN,
+      accuracy: lukai.REDUCE_MEAN,
     },
     event_targets={
-      pok.EVENT_TRAIN: (keep_prob.assign(0.5),),
-      pok.EVENT_INFER: (keep_prob.assign(1.0),),
-      pok.EVENT_EVAL: (keep_prob.assign(1.0),),
+      lukai.EVENT_TRAIN: (keep_prob.assign(0.5),),
+      lukai.EVENT_INFER: (keep_prob.assign(1.0),),
+      lukai.EVENT_EVAL: (keep_prob.assign(1.0),),
     },
 )
 ```
