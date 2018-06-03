@@ -29,7 +29,7 @@ lukai.upload(
     name=FLAGS.name,
     description=FLAGS.description,
     hyper_params=lukai.HyperParams(
-        proportion_clients = 0.1,
+        num_clients = 10,
         batch_size = 10,
         num_rounds = 100,
         learning_rate = learning_rate,
