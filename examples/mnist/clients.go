@@ -40,6 +40,119 @@ const (
 	dataDir             = "tmp/data"
 )
 
+func main() {
+	log.SetFlags(log.Flags() | log.Lshortfile)
+	flag.Parse()
+
+	// We need to set the max number of concurrent jobs since we are running
+	// multiple clients.
+	lukai.SetMaxConcurrentTrainingJobs(*numClients)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if err := os.MkdirAll(dataDir, perm); err != nil {
+		log.Fatal(err)
+	}
+	needData := false
+
+	// Create our model type clients.
+	var clients []*lukai.ModelType
+	for i := 0; i < *numClients; i++ {
+		mt, err := lukai.MakeModelType(*domain, *modelType, path.Join(dataDir, strconv.Itoa(i)))
+		if err != nil {
+			log.Fatal(err)
+		}
+		if mt.TotalExamples() == 0 {
+			needData = true
+		}
+		clients = append(clients, mt)
+	}
+	var wg sync.WaitGroup
+
+	// Load data into the models if we need to do so.
+	if needData {
+		dataImagesURL := datasetsURL + trainImages
+		dataLabelsURL := datasetsURL + trainLabels
+		log.Printf("Loading training data: %s, %s", dataImagesURL, dataLabelsURL)
+		images, err := loadImages(dataImagesURL)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("Loaded images! %d", len(images))
+		labels, err := loadLabels(dataLabelsURL)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("Loaded labels! %d", len(labels))
+		if len(images) != len(labels) {
+			log.Fatal("# images != # labels")
+		}
+
+		for i, image := range images {
+			client := clients[i%len(clients)]
+			x, err := tensorflow.NewTensor([][]float32{image})
+			if err != nil {
+				log.Fatal(err)
+			}
+			y, err := tensorflow.NewTensor([][]float32{labels[i]})
+			if err != nil {
+				log.Fatal(err)
+			}
+			if err := client.Log(
+				map[string]*tensorflow.Tensor{
+					"Placeholder:0":   x,
+					"Placeholder_1:0": y,
+				},
+				[]string{"adam_optimizer/Adam"},
+			); err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
+
+	if *profile {
+		f, err := os.OpenFile("/tmp/cpu.prof", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		pprof.StartCPUProfile(f)
+
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt)
+		go func() {
+			for range c {
+				f, err := os.OpenFile("/tmp/heap.prof", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
+				if err != nil {
+					log.Fatal(err)
+				}
+				defer f.Close()
+				pprof.WriteHeapProfile(f)
+				pprof.StopCPUProfile()
+				os.Exit(0)
+			}
+		}()
+	}
+
+	// Tell all of the model type clients to check for training jobs.
+	for i, mt := range clients {
+		log.Printf("%d. StartTraining...", i)
+		if err := mt.StartTraining(ctx); err != nil {
+			log.Fatal(err)
+		}
+		wg.Add(1)
+		defer func() {
+			if err := mt.StopTraining(); err != nil {
+				log.Println(err)
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+}
+
 var endian = binary.BigEndian
 
 func loadLabels(url string) ([][]float32, error) {
@@ -135,109 +248,4 @@ func loadImages(url string) ([][]float32, error) {
 	}
 
 	return images, nil
-}
-
-func main() {
-	log.SetFlags(log.Flags() | log.Lshortfile)
-	flag.Parse()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	if err := os.MkdirAll(dataDir, perm); err != nil {
-		log.Fatal(err)
-	}
-	needData := false
-	var clients []*lukai.ModelType
-	for i := 0; i < *numClients; i++ {
-		mt, err := lukai.MakeModelType(*domain, *modelType, path.Join(dataDir, strconv.Itoa(i)))
-		if err != nil {
-			log.Fatal(err)
-		}
-		if mt.TotalExamples() == 0 {
-			needData = true
-		}
-		clients = append(clients, mt)
-	}
-	var wg sync.WaitGroup
-
-	if needData {
-		dataImagesURL := datasetsURL + trainImages
-		dataLabelsURL := datasetsURL + trainLabels
-		log.Printf("Loading training data: %s, %s", dataImagesURL, dataLabelsURL)
-		images, err := loadImages(dataImagesURL)
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Printf("Loaded images! %d", len(images))
-		labels, err := loadLabels(dataLabelsURL)
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Printf("Loaded labels! %d", len(labels))
-		if len(images) != len(labels) {
-			log.Fatal("# images != # labels")
-		}
-
-		for i, image := range images {
-			client := clients[i%len(clients)]
-			x, err := tensorflow.NewTensor([][]float32{image})
-			if err != nil {
-				log.Fatal(err)
-			}
-			y, err := tensorflow.NewTensor([][]float32{labels[i]})
-			if err != nil {
-				log.Fatal(err)
-			}
-			if err := client.Log(
-				map[string]*tensorflow.Tensor{
-					"Placeholder:0":   x,
-					"Placeholder_1:0": y,
-				},
-				[]string{"adam_optimizer/Adam"},
-			); err != nil {
-				log.Fatal(err)
-			}
-		}
-	}
-
-	if *profile {
-		f, err := os.OpenFile("/tmp/cpu.prof", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer f.Close()
-		pprof.StartCPUProfile(f)
-
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt)
-		go func() {
-			for range c {
-				f, err := os.OpenFile("/tmp/heap.prof", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
-				if err != nil {
-					log.Fatal(err)
-				}
-				defer f.Close()
-				pprof.WriteHeapProfile(f)
-				pprof.StopCPUProfile()
-				os.Exit(0)
-			}
-		}()
-	}
-
-	for i, mt := range clients {
-		log.Printf("%d. StartTraining...", i)
-		if err := mt.StartTraining(ctx); err != nil {
-			log.Fatal(err)
-		}
-		wg.Add(1)
-		defer func() {
-			if err := mt.StopTraining(); err != nil {
-				log.Println(err)
-			}
-			wg.Done()
-		}()
-	}
-
-	wg.Wait()
 }
